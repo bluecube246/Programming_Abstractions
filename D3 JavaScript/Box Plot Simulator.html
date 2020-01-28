@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Boxplots</title>
+        <script src="https://d3js.org/d3.v5.min.js"></script>
+    </head>
+
+    <body>
+
+        <!--        This is here so that our images are not stuck to the right. -->
+        <div style="padding: 50px; float:left;">
+        </div>
+
+        <!--        First Box-->
+        <div id="chart" style="width: 410px; float:left;">
+            <h3>Create a boxplot</h3>
+            <p>Click in the center of the blue strip to add points.</p>
+            <form style="text-align: center;">
+                <input type="radio" value = "remove" name = "toggle" id = "removeButton"><label>Remove</label> 
+                <input type="radio" value = "add" name = "toggle" id = "addButton" checked><label>Add</label>
+            </form>
+            <svg id="C" width="100" height="410">
+                <rect id = "r1" x="25" y="0" width="50" height="450" fill="white", float = left></rect>
+            </svg>
+            <svg id="E" width="300" height="405">
+                <rect id = "r2" x="40" y="0" width="30" height="400" fill="lightblue", float = left></rect>
+                <svg id="A">
+                <rect id = "r2" x="70" y="0" width="60" height="400" fill="aliceblue", float = left></rect>
+                </svg>
+                <rect id = "r2" x="130" y="0" width="30" height="400" fill="lightblue", float = left></rect>
+            </svg>
+        </div>
+
+        <!--            Second Box-->
+        <div id ="summary" style="width: 600px; float: left;">
+            <h3>How to Read a Boxplot</h3>
+            <p>A boxplot is a standard way of displaying the distribution of data based in a five number summary (“minimum”, first quartile (Q1), median, third quartile (Q3), and “maximum”). It is useful for identifying outliers, whether the data is symmetrical, if the data is skewed, and how tightly the data is grouped. Outliers are defined by values that are not inside (Q1 - 1.5*IQR,Q3 + 1.5*IQR) In this graph the dots colored red are outliers of the graph. The top of the box is the third quartile the bottom of the box is the first quartile. The line above quartile value contains the maximum value that is not an outlier and the line below the 1st quartile contains the minimum value that is not an outlier. The line in the middle of the box represents the median.</p>
+            <p style="word-wrap :break-word;">Data:<span id="data"></span></p>
+            <p>Outliers: <span id="outlier"></span></p>
+            <p>Upper whisker: <span id="max"></span></p>
+            <p>Q3: <span id="q3"></span></p>
+            <p>Median: <span id="q2"></span></p>
+            <p>Q1: <span id="q1"></span></p>
+            <p>Lower whisker: <span id="min"></span></p>
+            <p>IQR:<span id="iqrange"></span></p>
+            <p style="word-wrap :break-word;">Data (Not-Outlier):<span id="data_not"></span></p>
+        </div>
+
+
+        <script type="text/javascript">
+
+            //Initializing variables    
+            var data_circle;var quant1; var quant2; var quant3; var outlier; var iqr; var iqr_array; var outliers; var min; var max;
+
+            var bool = true; var first; var not_outlier; var coords; 
+            
+            first = true;
+
+            //Creating the scale on the left    
+            var scale = d3.scaleLinear().domain([-100,100]).range([400,0])
+
+            var y_axis = d3.axisLeft().scale(scale)
+
+            var g = d3.select('svg').append("g").attr("transform","translate(60,5)").call(y_axis.ticks(5))
+            
+            
+            
+            //Seleting the svg. The board we are going to use 
+            var svg = d3.select('svg#A')
+            
+            //Initialize the parts of the box plot. 
+            var box = svg.append("rect").attr("id","center_box").attr("x",70).attr("width",60).attr("fill","aliceblue")
+            var up = svg.append("line").attr("id","upper").attr("x1", 70).attr("x2", 130).attr("stroke","aliceblue")
+            var low = svg.append("line").attr("id","lower").attr("x1", 70).attr("x2", 130).attr("stroke","aliceblue")
+            var med = svg.append("line").attr("id","median").attr("x1", 70).attr("x2", 130).attr("stroke","aliceblue")
+            var box_up = svg.append("line").attr("id","lower").attr("x1", 100).attr("x2", 100).attr("stroke","aliceblue")
+            var box_down = svg.append("line").attr("id","median").attr("x1", 100).attr("x2", 100).attr("stroke","aliceblue")
+            
+            //This function updates the statistics in accordance to the current number of circles. 
+            function update(){
+                    data_circle = svg.selectAll("circle").data().sort(d3.ascending) //Sort the data or the quantiles will not print properly. (d3.ascending crutial)
+                    console.log(data_circle)
+                    d3.select("#data").text(data_circle)
+                    quant1 = d3.quantile(data_circle,0.25) //Quantile 1
+                    d3.select("#q1").text(quant1) //Change the text of interquartile range.
+                    quant2 = d3.quantile(data_circle,0.50) //Median
+                    d3.select("#q2").text(quant2)
+                    quant3 = d3.quantile(data_circle,0.75) //Quantile 3
+                    d3.select("#q3").text(quant3)
+                    iqr = Math.abs(quant3 - quant1) //Interquartile Range
+                    d3.select("#iqrange").text(iqr)
+
+                    svg.selectAll("circle").attr('fill','black')    //Make all circles black
+
+                    temp = svg.selectAll("circle").filter(function(d){ //Set the outliers to red
+                        if((d < (quant1 - iqr* 1.5)) || (d > (quant3 + iqr* 1.5)))
+                            return this
+                    }).attr('fill','red')
+
+                    not_outlier = svg.selectAll("circle").filter(function(d){ //Extract the data without the outliers.
+                        if((d >= (quant1 - iqr * 1.5)) && (d <= (quant3 + iqr* 1.5)))
+                            return this
+                    }).data().sort(d3.ascending)
+
+                    d3.select("#data_not").text(not_outlier)
+                
+                    min = d3.min(not_outlier)
+                    
+                    max = d3.max(not_outlier)
+                    
+                    if(min > quant1){
+                        d3.select("#min").text(quant1)
+                        min = quant1
+                    }
+                    else{
+                    d3.select("#min").text(min) //Smallest value that is not an outlier is the Lower whisker
+                    }
+                    
+                    if(max < quant3){
+                    d3.select("#max").text(quant3) //Largest value that is not an outlier is the Upper whisker 
+                        max = quant3
+                    }
+                    else{
+                      d3.select("#max").text(max)  
+                    }
+                    outliers = d3.select("#outlier").text(temp.data().sort(d3.ascending)) // Append the outlier data to the text box. 
+                    
+            }
+            
+            //Adds a circle to svg at the given coordinate. 
+            function add_circle(coords){
+                    svg.append("circle") // Append a circle
+                        .attr("cx", coords[0]) //The coordinates to append the circle
+                        .attr("cy", coords[1])
+                        .attr("r", 4)
+                        .data([Math.round((200-coords[1])/2)]); // The modifying the Y coordinate so that the value is equal to the one on the scale.   
+                    
+            }
+            
+            //This funciton is used to deal with the first click. The colors of the objects are changed from the initial color that 
+            // was idential to its background.
+            function first_click(){
+                    box.attr("y",200 - quant3*2).attr("height",(quant3 - quant1)*2).attr("fill","#7FCDCD").attr("stroke","rgb(0,0,0)")
+                    low.attr("y1", 200 - min*2).attr("y2", 200 - min*2).attr("stroke","black")
+                    up.attr("y1", 200 - max*2).attr("y2", 200 - max*2).attr("stroke","black")
+                    med.attr("y1", 200 - quant2*2).attr("y2", 200 - quant2*2).attr("stroke","black")
+                    box_up.attr("y1", 200 - max*2).attr("y2", 200 - quant3*2).attr("stroke","black")
+                    box_down.attr("y1", 200 - quant1*2).attr("y2", 200 - min*2).attr("stroke","black")
+            }
+            
+            //This function is used to transition the box and whiskers plot.
+            function transition(){
+                    box.transition().duration(500).attr("y",200 - quant3*2).attr("height",(quant3 - quant1)*2)
+                    low.transition().duration(500).attr("y1", 200 - min*2).attr("y2", 200 - min*2)
+                    up.transition().duration(500).attr("y1", 200 - max*2).attr("y2", 200 - max*2)
+                    med.transition().duration(500).attr("y1", 200 - quant2*2).attr("y2", 200 - quant2*2)
+                    box_up.transition().duration(500).attr("y1", 200 - max*2).attr("y2", 200 - quant3*2)
+                    box_down.transition().duration(500).attr("y1", 200 - quant1*2).attr("y2", 200 - min*2)
+                    
+            }
+            
+            //When clicking on the svg do the following.
+            svg.on('click', function() {
+                coords = d3.mouse(this);
+                //If first = true this means that this is the first dot to be pressed. We modify transitions and change colors accordingly, 
+                if(first & bool){
+                    
+                    console.log(coords);
+                    
+                    //Add the new circle acording to the coordinates clicked. 
+                    add_circle(coords)
+                    
+                    first = false;
+                    
+                    //The statistics have changed due to a deleted circle so update the statistics. Same as above. 
+                    update();
+                    
+                    //Draw the graph in accordance to the first click. 
+                    first_click()
+
+                }
+                //If bool == true thus if the button Add is pressed
+                //The logic behind booleans changing has been delt with at the very end.              
+                else if(bool){
+                    console.log(coords);
+                    
+                    //Add the new circle acording to the coordinates clicked. 
+                    add_circle(coords) 
+                    
+                    //The statistics have changed due to a deleted circle so update the statistics. Same as above. 
+                    update()
+                    
+                    //Transition the box plot in accordance to the new statistics. 
+                    transition()
+
+                }
+                //This is when the boolean is false. The Remove Button is pressed. 
+                else{
+                    
+                    //Select all the circles. When a circle is clicked remove that circle. 
+                    var circles = svg.selectAll("circle")
+
+                    circles.on('click', function(){
+                        console.log(this)
+                        this.remove()
+                    });
+                    
+                    console.log(circles.data())
+                    
+                    //The statistics have changed due to a deleted circle so update the statistics. Same as above. 
+                    //Transition the box plot in accordance to the new statistics. 
+                    if(circles.data().length != 0){
+                        update()
+                        transition()
+                    }
+                    else{
+                        d3.select("#data").text("")
+                        d3.select("#q1").text("")
+                        d3.select("#q2").text("")
+                        d3.select("#q3").text("")
+                        d3.select("#iqrange").text("")
+                        d3.select("#data_not").text("")
+                        d3.select("#min").text("") //Smallest value that is not an outlier is the Lower whisker
+                        d3.select("#max").text("")
+                        d3.select("#outlier").text("")
+                        box.attr("fill","aliceblue")
+                        low.attr("stroke","aliceblue")
+                        up.attr("stroke","aliceblue")
+                        med.attr("stroke","aliceblue")
+                        box_up.attr("stroke","aliceblue")
+                        box_down.attr("stroke","aliceblue")
+                        first = true
+                    }
+
+                }
+            });
+
+
+            //On clicking the Remove button boolean becomes false. Dots can no longer be added and only deleted. 
+            d3.select("#removeButton").on('click', function(){
+                bool = false
+                console.log(bool)
+            });
+            
+            //On clicking the Add button the boolean becomes true. On clicking on the pannel dots can be added and not deleted. 
+            d3.select("#addButton").on('click', function(){
+                bool = true
+                console.log(bool)
+            });
+
+
+
+        </script>
+
+    </body>
+
+</html>
